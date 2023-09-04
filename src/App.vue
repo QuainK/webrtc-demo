@@ -10,6 +10,9 @@
       <div class="button" :class="active ? 'button-enable' : 'button-disable'" @click.stop.capture="onClickCall">
         呼叫
       </div>
+      <div class="button" :class="active ? 'button-enable' : 'button-disable'" @click.stop.capture="onClickSend">
+        发消息
+      </div>
     </div>
   </div>
 </template>
@@ -80,13 +83,13 @@ if (hostname === '84') {
   WS_URI = 'ws://192.168.23.84:5066'
   SIP_URI = 'sip:1007@192.168.23.84;transport=ws'
   PASSWORD = '1234'
-  TURN_URI = 'turn:192.168.23.176?transport=tcp'
+  TURN_URI = 'turn:192.168.23.176:3478?transport=tcp'
   CALL_SIP_URI = 'sip:1008@192.168.23.84;transport=ws'
 } else if (hostname === '176') {
   WS_URI = 'ws://192.168.23.176:5066'
   SIP_URI = 'sip:1014@192.168.23.176;transport=ws'
   PASSWORD = '1234'
-  TURN_URI = 'turn:192.168.23.176?transport=tcp'
+  TURN_URI = 'turn:192.168.23.176:3478?transport=tcp'
   CALL_SIP_URI = 'sip:1015@192.168.23.176;transport=ws'
 }
 
@@ -124,7 +127,7 @@ ua.on('newRTCSession', (e) => {
   }
 })
 ua.on('newMessage', (e) => {
-  console.log('newMessage', e)
+  console.log('newMessage', e?.request?.body, e)
 })
 ua.on('newOptions', (e) => {
   console.log('newOptions', e)
@@ -178,15 +181,39 @@ const makeCall = () => {
     'mediaConstraints': { 'audio': true, 'video': false },
     'mediaStream': localStream,
     'sessionTimersExpires': 120,
-    // 'pcConfig': {
-    //   'iceServers': [
-    //     // { 'urls': ['stun:a.example.com', 'stun:b.example.com'] },
-    //     { 'urls': TURN_URI, 'username': 'username', 'credential': 'password' }
-    //   ]
-    // }
+    'pcConfig': {
+      'iceServers': [
+        // { 'urls': ['stun:a.example.com', 'stun:b.example.com'] },
+        { 'urls': TURN_URI, 'username': 'username', 'credential': 'password' }
+      ]
+    }
   };
 
   session = ua.call(CALL_SIP_URI, options);
+}
+
+const onClickSend = () => {
+  var text = 'HelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHello';
+
+  var eventHandlers = {
+
+    'succeeded': function (e) {
+      console.log('message succeeded', e)
+    },
+
+    'failed': function (e) {
+      console.log('message succeeded', e)
+    }
+
+  };
+
+  var options = {
+
+    'eventHandlers': eventHandlers
+
+  };
+
+  ua.sendMessage(CALL_SIP_URI, text, options);
 }
 
 const audioRef = ref()
