@@ -1,8 +1,31 @@
 <template>
   <div class="box">
-    <p>本机SIP地址：{{ SIP_URI }}</p>
-    <p>对方SIP地址：{{ CALL_SIP_URI }}</p>
+    <div class="input">
+      <p class="input-label">FreeSwitch 服务器 WebSocket 地址：</p>
+      <input v-model="WS_URI" class="input-text" type="text">
+    </div>
+    <div class="input">
+      <p class="input-label">本机 SIP 地址：</p>
+      <input v-model="LOCAL_SIP_URI" class="input-text" type="text">
+    </div>
+    <div class="input">
+      <p class="input-label">本机 SIP 密码：</p>
+      <input v-model="PASSWORD" class="input-text" type="password">
+    </div>
+    <div class="input">
+      <p class="input-label">TURN 服务器地址：</p>
+      <input v-model="TURN_URI" class="input-text" type="text">
+    </div>
+
+    <hr>
+
+    <div class="input">
+      <p class="input-label">对方 SIP 地址：</p>
+      <input v-model="REMOTE_SIP_URI" class="input-text" type="text">
+    </div>
+
     <audio ref="audioRef" controls autoplay></audio>
+
     <div class="button-box">
       <div class="button button-enable" @click.stop.capture="onClickSwitch">
         {{ buttonText }}
@@ -20,6 +43,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import * as JsSip from 'jssip'
+import { CallOptions } from 'jssip/lib/UA'
+import { AnswerOptions } from 'jssip/lib/RTCSession'
 
 // 按钮状态
 const active = ref(false)
@@ -42,9 +67,6 @@ const onClickSwitch = () => {
  * 点击呼叫按钮
  */
 const onClickCall = () => {
-  if (!active.value) {
-    return
-  }
   makeCall()
 }
 
@@ -70,35 +92,35 @@ window.addEventListener('beforeunload', () => {
   stopService()
 })
 
-let hostname: string = '176'
-// hostname = '84'
+// const hostname: string = '176'
+const hostname: string = '84'
 
-let WS_URI = ''
-let SIP_URI = ''
-let PASSWORD = ''
-let TURN_URI = ''
-let CALL_SIP_URI = ''
+const WS_URI = ref('')
+const LOCAL_SIP_URI = ref('')
+const PASSWORD = ref('')
+const TURN_URI = ref('')
+const REMOTE_SIP_URI = ref('')
 
 if (hostname === '84') {
-  WS_URI = 'ws://192.168.23.84:5066'
-  SIP_URI = 'sip:1007@192.168.23.84;transport=ws'
-  PASSWORD = '1234'
-  TURN_URI = 'turn:192.168.23.176:3478?transport=tcp'
-  CALL_SIP_URI = 'sip:1008@192.168.23.84;transport=ws'
+  WS_URI.value = 'ws://192.168.23.84:5066'
+  LOCAL_SIP_URI.value = 'sip:1007@192.168.23.84;transport=ws'
+  PASSWORD.value = '1234'
+  TURN_URI.value = 'turn:192.168.23.176:3478?transport=tcp'
+  REMOTE_SIP_URI.value = 'sip:1006@192.168.23.84;transport=ws'
 } else if (hostname === '176') {
-  WS_URI = 'ws://192.168.23.176:5066'
-  SIP_URI = 'sip:1014@192.168.23.176;transport=ws'
-  PASSWORD = '1234'
-  TURN_URI = 'turn:192.168.23.176:3478?transport=tcp'
-  CALL_SIP_URI = 'sip:1015@192.168.23.176;transport=ws'
+  WS_URI.value = 'ws://192.168.23.176:5066'
+  LOCAL_SIP_URI.value = 'sip:1014@192.168.23.176;transport=ws'
+  PASSWORD.value = '1234'
+  TURN_URI.value = 'turn:192.168.23.176:3478?transport=tcp'
+  REMOTE_SIP_URI.value = 'sip:1015@192.168.23.176;transport=ws'
 }
 
-const socket = new JsSip.WebSocketInterface(WS_URI)
+const socket = new JsSip.WebSocketInterface(WS_URI.value)
 const config = {
   sockets: [socket],
-  outbound_proxy_set: WS_URI,
-  uri: SIP_URI,
-  password: PASSWORD,
+  outbound_proxy_set: WS_URI.value,
+  uri: LOCAL_SIP_URI.value,
+  password: PASSWORD.value,
   session_timers: false,
   register: true,
 }
@@ -113,23 +135,23 @@ ua.on('disconnected', (e) => {
   console.log('disconnected', e)
 })
 
-ua.on('newRTCSession', (e) => {
+ua.on('newRTCSession', (e: any) => {
   console.log('newRTCSession', e)
   if (e.originator == 'remote') {
     console.log('incoming')
-    //回答传入会话。此方法仅适用于传入会话。
-    e.session.answer({
-      'mediaConstraints': { 'audio': true, 'video': true },
+    // 回答传入会话。此方法仅适用于传入会话。
+    e.session.answer(<AnswerOptions>{
+      'mediaConstraints': { 'audio': true, 'video': false },
       'mediaStream': localStream
     });
   } else {
     console.log('outgoing')
   }
 })
-ua.on('newMessage', (e) => {
+ua.on('newMessage', (e: any) => {
   console.log('newMessage', e?.request?.body, e)
 })
-ua.on('newOptions', (e) => {
+ua.on('newOptions', (e: any) => {
   console.log('newOptions', e)
 })
 
@@ -162,75 +184,102 @@ let session = null
 const makeCall = () => {
   // Register callbacks to desired call events
   const eventHandlers = {
-    'progress': function (e) {
+    'progress': function (e: any) {
       console.log('call is in progress', e);
     },
-    'failed': function (e) {
+    'failed': function (e: any) {
       console.log('call failed with cause: ', e);
     },
-    'ended': function (e) {
+    'ended': function (e: any) {
       console.log('call ended with cause: ', e);
     },
-    'confirmed': function (e) {
+    'confirmed': function (e: any) {
       console.log('call confirmed', e);
     }
   };
 
-  const options = {
+  const options: CallOptions = {
     'eventHandlers': eventHandlers,
     'mediaConstraints': { 'audio': true, 'video': false },
-    'mediaStream': localStream,
+    'mediaStream': localStream ?? undefined,
     'sessionTimersExpires': 120,
     'pcConfig': {
       'iceServers': [
         // { 'urls': ['stun:a.example.com', 'stun:b.example.com'] },
-        { 'urls': TURN_URI, 'username': 'username', 'credential': 'password' }
+        { 'urls': TURN_URI.value, 'username': 'username', 'credential': 'PASSWORD.value' }
       ]
     }
   };
 
-  session = ua.call(CALL_SIP_URI, options);
+  session = ua.call(REMOTE_SIP_URI.value, options);
+  console.log('session', session)
 }
 
 const onClickSend = () => {
-  var text = 'HelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHello';
-
-  var eventHandlers = {
-
-    'succeeded': function (e) {
+  const text = 'HelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHello';
+  const eventHandlers = {
+    'succeeded': function (e: any) {
       console.log('message succeeded', e)
     },
-
-    'failed': function (e) {
+    'failed': function (e: any) {
       console.log('message succeeded', e)
     }
-
   };
 
-  var options = {
-
+  const options = {
     'eventHandlers': eventHandlers
-
   };
 
-  ua.sendMessage(CALL_SIP_URI, text, options);
+  ua.sendMessage(REMOTE_SIP_URI.value, text, options);
 }
 
 const audioRef = ref()
-let localStream = null
+let localStream: MediaStream | null = null
 </script>
 
 <style scoped lang="scss">
 .box {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
+  overflow-y: auto;
   width: 100%;
+  max-width: 450px;
+  padding: 10px;
   height: 100%;
+  margin: 0 auto;
   & > * {
-    margin-bottom: 20px;
+    flex: none;
+    margin-top: 20px;
+    &:first-child {
+      margin-top: 0;
+    }
   }
+}
+hr {
+  display: block;
+  width: 100%;
+}
+.input {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+  width: 400px;
+}
+.input-label {
+  align-self: flex-start;
+  width: 100%;
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+.input-text {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #1abc9c;
+  font-size: 18px;
 }
 .button-box {
   display: flex;
@@ -266,6 +315,7 @@ let localStream = null
     }
   }
   &.button-disable {
+    display: none;
     background-color: #bdc3c7;
     cursor: not-allowed;
   }
