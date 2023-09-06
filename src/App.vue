@@ -12,10 +12,10 @@
       <p class="input-label">本机 SIP 密码：</p>
       <input v-model="PASSWORD" class="input-text" type="password">
     </div>
-    <div class="input">
-      <p class="input-label">TURN 服务器地址：</p>
-      <input v-model="TURN_URI" class="input-text" type="text">
-    </div>
+    <!--<div class="input">-->
+    <!--  <p class="input-label">TURN 服务器地址：</p>-->
+    <!--  <input v-model="TURN_URI" class="input-text" type="text">-->
+    <!--</div>-->
 
     <hr>
 
@@ -106,7 +106,7 @@ if (hostname === '84') {
   LOCAL_SIP_URI.value = 'sip:1007@192.168.23.84;transport=ws'
   PASSWORD.value = '1234'
   TURN_URI.value = 'turn:192.168.23.176:3478?transport=tcp'
-  REMOTE_SIP_URI.value = 'sip:1006@192.168.23.84;transport=ws'
+  REMOTE_SIP_URI.value = 'sip:1008@192.168.23.84;transport=ws'
 } else if (hostname === '176') {
   WS_URI.value = 'ws://192.168.23.176:5066'
   LOCAL_SIP_URI.value = 'sip:1014@192.168.23.176;transport=ws'
@@ -115,64 +115,66 @@ if (hostname === '84') {
   REMOTE_SIP_URI.value = 'sip:1015@192.168.23.176;transport=ws'
 }
 
-const socket = new JsSip.WebSocketInterface(WS_URI.value)
-const config = {
-  sockets: [socket],
-  outbound_proxy_set: WS_URI.value,
-  uri: LOCAL_SIP_URI.value,
-  password: PASSWORD.value,
-  session_timers: false,
-  register: true,
-}
-const ua = new JsSip.UA(config)
-ua.on('connecting', (e) => {
-  console.log('connecting', e)
-})
-ua.on('connected', (e) => {
-  console.log('connected', e)
-})
-ua.on('disconnected', (e) => {
-  console.log('disconnected', e)
-})
-
-ua.on('newRTCSession', (e: any) => {
-  console.log('newRTCSession', e)
-  if (e.originator == 'remote') {
-    console.log('incoming')
-    // 回答传入会话。此方法仅适用于传入会话。
-    e.session.answer(<AnswerOptions>{
-      'mediaConstraints': { 'audio': true, 'video': false },
-      'mediaStream': localStream
-    });
-  } else {
-    console.log('outgoing')
-  }
-})
-ua.on('newMessage', (e: any) => {
-  console.log('newMessage', e?.request?.body, e)
-})
-ua.on('newOptions', (e: any) => {
-  console.log('newOptions', e)
-})
-
-ua.on('registered', (e) => {
-  console.log('registered', e)
-})
-ua.on('unregistered', (e) => {
-  console.log('unregistered', e)
-})
-ua.on('registrationFailed', (e) => {
-  console.log('registrationFailed', e)
-})
-ua.on('registrationExpiring', (e) => {
-  console.log('registrationExpiring', e)
-})
-
-ua.on('sipEvent', (e) => {
-  console.log('sipEvent', e)
-})
+let ua = null
 
 const initSip = () => {
+  const socket = new JsSip.WebSocketInterface(WS_URI.value)
+  const config = {
+    sockets: [socket],
+    outbound_proxy_set: WS_URI.value,
+    uri: LOCAL_SIP_URI.value,
+    password: PASSWORD.value,
+    session_timers: false,
+    register: true,
+  }
+  ua = new JsSip.UA(config)
+  ua.on('connecting', (e) => {
+    console.log('connecting', e)
+  })
+  ua.on('connected', (e) => {
+    console.log('connected', e)
+  })
+  ua.on('disconnected', (e) => {
+    console.log('disconnected', e)
+  })
+
+  ua.on('newRTCSession', (e: any) => {
+    console.log('newRTCSession', e)
+    if (e.originator == 'remote') {
+      console.log('incoming')
+      // 回答传入会话。此方法仅适用于传入会话。
+      e.session.answer(<AnswerOptions>{
+        'mediaConstraints': { 'audio': true, 'video': false },
+        'mediaStream': localStream
+      });
+    } else {
+      console.log('outgoing')
+    }
+  })
+  ua.on('newMessage', (e: any) => {
+    console.log('newMessage', e?.request?.body, e)
+  })
+  ua.on('newOptions', (e: any) => {
+    console.log('newOptions', e)
+  })
+
+  ua.on('registered', (e) => {
+    console.log('registered', e)
+  })
+  ua.on('unregistered', (e) => {
+    console.log('unregistered', e)
+  })
+  ua.on('registrationFailed', (e) => {
+    console.log('registrationFailed', e)
+  })
+  ua.on('registrationExpiring', (e) => {
+    console.log('registrationExpiring', e)
+  })
+
+  ua.on('sipEvent', (e) => {
+    console.log('sipEvent', e)
+  })
+
   ua.start()
 }
 
@@ -182,7 +184,6 @@ const killSip = () => {
 
 let session = null
 const makeCall = () => {
-  // Register callbacks to desired call events
   const eventHandlers = {
     'progress': function (e: any) {
       console.log('call is in progress', e);
@@ -197,20 +198,18 @@ const makeCall = () => {
       console.log('call confirmed', e);
     }
   };
-
   const options: CallOptions = {
     'eventHandlers': eventHandlers,
     'mediaConstraints': { 'audio': true, 'video': false },
     'mediaStream': localStream ?? undefined,
     'sessionTimersExpires': 120,
-    'pcConfig': {
-      'iceServers': [
-        // { 'urls': ['stun:a.example.com', 'stun:b.example.com'] },
-        { 'urls': TURN_URI.value, 'username': 'username', 'credential': 'PASSWORD.value' }
-      ]
-    }
+    // 'pcConfig': {
+    //   'iceServers': [
+    //     // { 'urls': ['stun:a.example.com', 'stun:b.example.com'] },
+    //     { 'urls': TURN_URI.value, 'username': 'username', 'credential': 'PASSWORD.value' }
+    //   ]
+    // }
   };
-
   session = ua.call(REMOTE_SIP_URI.value, options);
   console.log('session', session)
 }
@@ -222,14 +221,12 @@ const onClickSend = () => {
       console.log('message succeeded', e)
     },
     'failed': function (e: any) {
-      console.log('message succeeded', e)
+      console.log('message failed', e)
     }
   };
-
   const options = {
     'eventHandlers': eventHandlers
   };
-
   ua.sendMessage(REMOTE_SIP_URI.value, text, options);
 }
 
