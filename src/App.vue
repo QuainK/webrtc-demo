@@ -24,7 +24,7 @@
       <input v-model="REMOTE_SIP_URI" class="input-text" type="text">
     </div>
 
-    <audio ref="audioRef" controls autoplay></audio>
+    <audio ref="audioRef" controls></audio>
 
     <div class="button-box">
       <div class="button button-enable" @click.stop.capture="onClickSwitch">
@@ -43,8 +43,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import * as JsSip from 'jssip'
-import { CallOptions } from 'jssip/lib/UA'
-import { AnswerOptions } from 'jssip/lib/RTCSession'
+import { CallOptions, RTCSessionEvent } from 'jssip/lib/UA'
+import { AnswerOptions, PeerConnectionEvent } from 'jssip/lib/RTCSession'
 
 // 按钮状态
 const active = ref(false)
@@ -117,6 +117,14 @@ if (hostname === '84') {
 
 let ua = null
 
+let outgoingSession = null
+let incomingSession = null
+let currentSession = null
+
+const audioRef = ref()
+let localStream: MediaStream | null = null
+let remoteStream: MediaStream | null = null
+
 const initSip = () => {
   const socket = new JsSip.WebSocketInterface(WS_URI.value)
   const config = {
@@ -138,18 +146,88 @@ const initSip = () => {
     console.log('disconnected', e)
   })
 
-  ua.on('newRTCSession', (e: any) => {
+  ua.on('newRTCSession', (e: RTCSessionEvent) => {
     console.log('newRTCSession', e)
+    // remoteStream = Object.getPrototypeOf(e.session).getRemoteStreams()
+    // const connection = Object.getPrototypeOf(e.session.connection)
+    // console.log('--------------- connection', e.session._events.peerconnection)
+    console.log('--------------- connection', e.session._connection.getRemoteStreams()[0])
+
+    // 通话呼入
     if (e.originator == 'remote') {
+      // 接电话
       console.log('incoming')
-      // 回答传入会话。此方法仅适用于传入会话。
-      e.session.answer(<AnswerOptions>{
-        'mediaConstraints': { 'audio': true, 'video': false },
-        'mediaStream': localStream
-      });
+      incomingSession = e.session
+      incomingSession.answer(<AnswerOptions>{
+        mediaConstraints: {
+          audio: true,
+          video: false,
+          mandatory: { maxWidth: 640, maxHeight: 360 }
+        },
+        mediaStream: remoteStream
+      })
+      console.log('--------------- connection', e.session._connection.getRemoteStreams()[0])
     } else {
+      // 打电话
       console.log('outgoing')
+      outgoingSession = e.session
+      outgoingSession.on('connecting', function () {
+        currentSession = outgoingSession
+        outgoingSession = null
+      })
+      console.log('--------------- connection', e.session._connection.getRemoteStreams()[0])
     }
+
+    e.session.on('accepted', function (data) {
+      console.info('onAccepted - ', data)
+
+      if (data.originator == 'remote' && currentSession == null) {
+        currentSession = incomingSession
+        incomingSession = null
+        console.info('setCurrentSession - ', currentSession)
+      }
+      console.log('--------------- connection', e.session._connection.getRemoteStreams()[0])
+      remoteStream = e.session._connection.getRemoteStreams()[0] ?? null
+      audioRef.value.srcObject = remoteStream
+      audioRef.value.load()
+      audioRef.value.play().catch(() => {
+      })
+    })
+    e.session.on('confirmed', function (data) {
+      console.info('onConfirmed - ', data)
+      if (data.originator == 'remote' && currentSession == null) {
+        currentSession = incomingSession
+        incomingSession = null
+        console.info('setCurrentSession - ', currentSession)
+      }
+      console.log('--------------- connection', e.session._connection.getRemoteStreams()[0])
+      remoteStream = e.session._connection.getRemoteStreams()[0] ?? null
+      audioRef.value.srcObject = remoteStream
+      audioRef.value.load()
+      audioRef.value.play().catch(() => {
+      })
+    })
+    e.session.on('sdp', function (data) {
+      // console.info('onSDP, type - ', data.type, ' sdp - ', data.sdp)
+    })
+
+    e.session.on('progress', function (data) {
+      console.info('onProgress - ', data.originator)
+      if (data.originator == 'remote') {
+        console.info('onProgress, response - ', data.response)
+      }
+    })
+    e.session.on('peerconnection', function (data: PeerConnectionEvent) {
+      console.log('--------------- connection', e.session._connection.getRemoteStreams()[0])
+      console.warn('------------------ onPeerconnection - ', data.peerconnection)
+      const receivers = data.peerconnection?.getRemoteStreams()[0]
+      console.log('receivers', receivers)
+      const streamList = data.peerconnection?.getRemoteStreams()
+      console.log('streamList[0]', streamList[0])
+      audioRef.value.srcObject = streamList[0] ?? null
+      audioRef.value.load()
+      audioRef.value.play()
+    })
   })
   ua.on('newMessage', (e: any) => {
     console.log('newMessage', e?.request?.body, e)
@@ -179,10 +257,10 @@ const initSip = () => {
 }
 
 const killSip = () => {
+  ua.terminateSessions()
   ua.stop()
 }
 
-let session = null
 const makeCall = () => {
   const eventHandlers = {
     'progress': function (e: any) {
@@ -201,7 +279,7 @@ const makeCall = () => {
   const options: CallOptions = {
     'eventHandlers': eventHandlers,
     'mediaConstraints': { 'audio': true, 'video': false },
-    'mediaStream': localStream ?? undefined,
+    // 'mediaStream': remoteStream ?? undefined,
     'sessionTimersExpires': 120,
     // 'pcConfig': {
     //   'iceServers': [
@@ -210,8 +288,8 @@ const makeCall = () => {
     //   ]
     // }
   };
-  session = ua.call(REMOTE_SIP_URI.value, options);
-  console.log('session', session)
+  outgoingSession = ua.call(REMOTE_SIP_URI.value, options);
+  console.log('session', outgoingSession)
 }
 
 const onClickSend = () => {
@@ -229,9 +307,6 @@ const onClickSend = () => {
   };
   ua.sendMessage(REMOTE_SIP_URI.value, text, options);
 }
-
-const audioRef = ref()
-let localStream: MediaStream | null = null
 </script>
 
 <style scoped lang="scss">
@@ -293,7 +368,7 @@ hr {
   height: 45px;
   margin-left: 1em;
   border-radius: 6px;
-  font-size: 20px;
+  font-size: 18px;
   color: #fff;
   user-select: none;
   &:first-child {
