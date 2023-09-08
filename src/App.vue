@@ -43,8 +43,25 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import * as JsSip from 'jssip'
-import { CallOptions, RTCSessionEvent } from 'jssip/lib/UA'
-import { AnswerOptions, PeerConnectionEvent } from 'jssip/lib/RTCSession'
+import {
+  CallOptions,
+  IncomingMessageEvent,
+  IncomingOptionsEvent,
+  OutgoingMessageEvent,
+  OutgoingOptionsEvent,
+  RTCSessionEvent,
+  UA
+} from 'jssip/lib/UA'
+import {
+  AnswerOptions,
+  IncomingAckEvent,
+  IncomingEvent,
+  OutgoingAckEvent,
+  OutgoingEvent,
+  PeerConnectionEvent,
+  RTCSession,
+  SDPEvent
+} from 'jssip/lib/RTCSession'
 
 // 按钮状态
 const active = ref(false)
@@ -115,14 +132,14 @@ if (hostname === '84') {
   REMOTE_SIP_URI.value = 'sip:1015@192.168.23.176;transport=ws'
 }
 
-let ua = null
+let ua: UA | null = null
 
-let outgoingSession = null
-let incomingSession = null
-let currentSession = null
+let outgoingSession: RTCSession | null = null
+let incomingSession: RTCSession | null = null
+let currentSession: RTCSession | null = null
 
 const audioRef = ref()
-let localStream: MediaStream | null = null
+// let localStream: MediaStream | null = null
 let remoteStream: MediaStream | null = null
 
 const initSip = () => {
@@ -148,11 +165,8 @@ const initSip = () => {
 
   ua.on('newRTCSession', (e: RTCSessionEvent) => {
     console.log('newRTCSession', e)
-    console.log('*************** e.session._connection', e.session.connection)
-    // remoteStream = Object.getPrototypeOf(e.session).getRemoteStreams()
-    // const connection = Object.getPrototypeOf(e.session.connection)
-    // console.log('--------------- connection', e.session._events.peerconnection)
-    console.log('--------------- connection', e.session.connection.getRemoteStreams()[0])
+    console.log('*************** e.session.connection', e.session.connection)
+    console.log('--------------- getRemoteStreams', e.session.connection.getRemoteStreams()[0])
 
     // 通话呼入
     if (e.originator == 'remote') {
@@ -167,7 +181,7 @@ const initSip = () => {
         },
         mediaStream: remoteStream
       })
-      console.log('--------------- connection', e.session.connection.getRemoteStreams()[0])
+      console.log('--------------- getRemoteStreams', e.session.connection.getRemoteStreams()[0])
     } else {
       // 打电话
       console.log('outgoing')
@@ -176,10 +190,10 @@ const initSip = () => {
         currentSession = outgoingSession
         outgoingSession = null
       })
-      console.log('--------------- connection', e.session.connection.getRemoteStreams()[0])
+      console.log('--------------- getRemoteStreams', e.session.connection.getRemoteStreams()[0])
     }
 
-    e.session.on('accepted', function (data) {
+    e.session.on('accepted', function (data: OutgoingEvent) {
       console.info('onAccepted - ', data)
 
       if (data.originator == 'remote' && currentSession == null) {
@@ -187,53 +201,55 @@ const initSip = () => {
         incomingSession = null
         console.info('setCurrentSession - ', currentSession)
       }
-      console.log('--------------- connection', e.session.connection.getRemoteStreams()[0])
+      console.log('--------------- getRemoteStreams', e.session.connection.getRemoteStreams()[0])
       remoteStream = e.session.connection.getRemoteStreams()[0] ?? null
       audioRef.value.srcObject = remoteStream
       audioRef.value.load()
       audioRef.value.play().catch(() => {
       })
     })
-    e.session.on('confirmed', function (data) {
+    e.session.on('confirmed', function (data: IncomingAckEvent | OutgoingAckEvent) {
       console.info('onConfirmed - ', data)
       if (data.originator == 'remote' && currentSession == null) {
         currentSession = incomingSession
         incomingSession = null
         console.info('setCurrentSession - ', currentSession)
       }
-      console.log('--------------- connection', e.session.connection.getRemoteStreams()[0])
+      console.log('--------------- getRemoteStreams', e.session.connection.getRemoteStreams()[0])
       remoteStream = e.session.connection.getRemoteStreams()[0] ?? null
       audioRef.value.srcObject = remoteStream
       audioRef.value.load()
       audioRef.value.play().catch(() => {
       })
     })
-    e.session.on('sdp', function (data) {
+    e.session.on('sdp', function (data: SDPEvent) {
       // console.info('onSDP, type - ', data.type, ' sdp - ', data.sdp)
+      console.info('onSDP, type - ', data.type)
     })
 
-    e.session.on('progress', function (data) {
+    e.session.on('progress', function (data: IncomingEvent | OutgoingEvent) {
       console.info('onProgress - ', data.originator)
       if (data.originator == 'remote') {
         console.info('onProgress, response - ', data.response)
       }
     })
     e.session.on('peerconnection', function (data: PeerConnectionEvent) {
-      console.log('--------------- connection', e.session.connection.getRemoteStreams()[0])
-      console.warn('------------------ onPeerconnection - ', data.peerconnection)
-      const receivers = data.peerconnection?.getRemoteStreams()[0]
-      console.log('receivers', receivers)
-      const streamList = data.peerconnection?.getRemoteStreams()
-      console.log('streamList[0]', streamList[0])
-      audioRef.value.srcObject = streamList[0] ?? null
-      audioRef.value.load()
-      audioRef.value.play()
+      console.log('peerconnection', data)
+      // console.log('--------------- connection', e.session.connection.getRemoteStreams()[0])
+      // console.warn('------------------ onPeerconnection - ', data.peerconnection)
+      // const receivers = data.peerconnection?.getRemoteStreams()[0]
+      // console.log('receivers', receivers)
+      // const streamList = data.peerconnection?.getRemoteStreams()
+      // console.log('streamList[0]', streamList[0])
+      // audioRef.value.srcObject = streamList[0] ?? null
+      // audioRef.value.load()
+      // audioRef.value.play()
     })
   })
-  ua.on('newMessage', (e: any) => {
+  ua.on('newMessage', (e: IncomingMessageEvent | OutgoingMessageEvent) => {
     console.log('newMessage', e?.request?.body, e)
   })
-  ua.on('newOptions', (e: any) => {
+  ua.on('newOptions', (e: IncomingOptionsEvent | OutgoingOptionsEvent) => {
     console.log('newOptions', e)
   })
 
@@ -258,8 +274,8 @@ const initSip = () => {
 }
 
 const killSip = () => {
-  ua.terminateSessions()
-  ua.stop()
+  ua?.terminateSessions()
+  ua?.stop()
 }
 
 const makeCall = () => {
@@ -289,7 +305,7 @@ const makeCall = () => {
     //   ]
     // }
   };
-  outgoingSession = ua.call(REMOTE_SIP_URI.value, options);
+  outgoingSession = ua?.call(REMOTE_SIP_URI.value, options) ?? null;
   console.log('session', outgoingSession)
 }
 
@@ -306,7 +322,7 @@ const onClickSend = () => {
   const options = {
     'eventHandlers': eventHandlers
   };
-  ua.sendMessage(REMOTE_SIP_URI.value, text, options);
+  ua?.sendMessage(REMOTE_SIP_URI.value, text, options);
 }
 </script>
 
