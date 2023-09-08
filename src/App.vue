@@ -62,6 +62,15 @@ import {
   RTCSession,
   SDPEvent
 } from 'jssip/lib/RTCSession'
+import VConsole from 'vconsole';
+
+// 或者使用配置参数来初始化，详情见文档
+// const vConsole = new VConsole({ theme: 'dark' });
+const vConsole = new VConsole();
+// 接下来即可照常使用 `console` 等方法
+console.log('Hello world', vConsole);
+// 结束调试后，可移除掉
+// vConsole.destroy();
 
 // 按钮状态
 const active = ref(false)
@@ -119,7 +128,7 @@ const TURN_URI = ref('')
 const REMOTE_SIP_URI = ref('')
 
 if (hostname === '84') {
-  WS_URI.value = 'ws://192.168.23.84:5066'
+  WS_URI.value = 'ws://192.168.137.1:5066'
   LOCAL_SIP_URI.value = 'sip:1007@192.168.23.84;transport=ws'
   PASSWORD.value = '1234'
   TURN_URI.value = 'turn:192.168.23.176:3478?transport=tcp'
@@ -166,7 +175,7 @@ const initSip = () => {
   ua.on('newRTCSession', (e: RTCSessionEvent) => {
     console.log('newRTCSession', e)
     console.log('*************** e.session.connection', e.session.connection)
-    console.log('--------------- getRemoteStreams', e.session.connection.getRemoteStreams()[0])
+    console.log('--------------- newRTCSession getRemoteStreams', e.session?.connection?.getRemoteStreams()[0])
 
     // 通话呼入
     if (e.originator == 'remote') {
@@ -181,7 +190,7 @@ const initSip = () => {
         },
         mediaStream: remoteStream
       })
-      console.log('--------------- getRemoteStreams', e.session.connection.getRemoteStreams()[0])
+      console.log('--------------- incoming getRemoteStreams', e.session?.connection?.getRemoteStreams()[0])
     } else {
       // 打电话
       console.log('outgoing')
@@ -190,9 +199,8 @@ const initSip = () => {
         currentSession = outgoingSession
         outgoingSession = null
       })
-      console.log('--------------- getRemoteStreams', e.session.connection.getRemoteStreams()[0])
+      console.log('--------------- outgoing getRemoteStreams', e.session?.connection?.getRemoteStreams()[0])
     }
-
     e.session.on('accepted', function (data: OutgoingEvent) {
       console.info('onAccepted - ', data)
 
@@ -201,8 +209,8 @@ const initSip = () => {
         incomingSession = null
         console.info('setCurrentSession - ', currentSession)
       }
-      console.log('--------------- getRemoteStreams', e.session.connection.getRemoteStreams()[0])
-      remoteStream = e.session.connection.getRemoteStreams()[0] ?? null
+      console.log('--------------- accepted getRemoteStreams', e.session.connection.getRemoteStreams()[0])
+      remoteStream = e.session?.connection?.getRemoteStreams()[0] ?? null
       audioRef.value.srcObject = remoteStream
       audioRef.value.load()
       audioRef.value.play().catch(() => {
@@ -215,8 +223,8 @@ const initSip = () => {
         incomingSession = null
         console.info('setCurrentSession - ', currentSession)
       }
-      console.log('--------------- getRemoteStreams', e.session.connection.getRemoteStreams()[0])
-      remoteStream = e.session.connection.getRemoteStreams()[0] ?? null
+      console.log('--------------- confirmed getRemoteStreams', e.session?.connection?.getRemoteStreams()[0])
+      remoteStream = e.session?.connection?.getRemoteStreams()[0] ?? null
       audioRef.value.srcObject = remoteStream
       audioRef.value.load()
       audioRef.value.play().catch(() => {
@@ -226,12 +234,12 @@ const initSip = () => {
       // console.info('onSDP, type - ', data.type, ' sdp - ', data.sdp)
       console.info('onSDP, type - ', data.type)
     })
-
     e.session.on('progress', function (data: IncomingEvent | OutgoingEvent) {
       console.info('onProgress - ', data.originator)
       if (data.originator == 'remote') {
         console.info('onProgress, response - ', data.response)
       }
+      console.log('--------------- progress getRemoteStreams', e.session?.connection?.getRemoteStreams()[0])
     })
     e.session.on('peerconnection', function (data: PeerConnectionEvent) {
       console.log('peerconnection', data)
@@ -243,7 +251,7 @@ const initSip = () => {
       // console.log('streamList[0]', streamList[0])
       // audioRef.value.srcObject = streamList[0] ?? null
       // audioRef.value.load()
-      // audioRef.value.play()
+      // audioRef.value.play()+
     })
   })
   ua.on('newMessage', (e: IncomingMessageEvent | OutgoingMessageEvent) => {
@@ -334,8 +342,8 @@ const onClickSend = () => {
   align-items: center;
   overflow-y: auto;
   width: 100%;
-  max-width: 450px;
-  padding: 10px;
+  max-width: 300px;
+  // padding: 10px;
   height: 100%;
   margin: 0 auto;
   & > * {
@@ -355,7 +363,7 @@ hr {
   flex-direction: column;
   justify-content: flex-start;
   align-items: flex-start;
-  width: 400px;
+  width: 280px;
 }
 .input-label {
   align-self: flex-start;
