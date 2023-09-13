@@ -58,7 +58,6 @@ import {
   IncomingEvent,
   OutgoingAckEvent,
   OutgoingEvent,
-  PeerConnectionEvent,
   RTCSession,
   SDPEvent
 } from 'jssip/lib/RTCSession'
@@ -132,7 +131,7 @@ if (hostname === '84') {
   LOCAL_SIP_URI.value = 'sip:1007@192.168.23.84;transport=ws'
   PASSWORD.value = '1234'
   TURN_URI.value = 'turn:192.168.23.176:3478?transport=tcp'
-  REMOTE_SIP_URI.value = 'sip:1008@192.168.23.84;transport=ws'
+  REMOTE_SIP_URI.value = 'sip:1010@192.168.23.84;transport=ws'
 } else if (hostname === '176') {
   WS_URI.value = 'ws://192.168.23.176:5066'
   LOCAL_SIP_URI.value = 'sip:1014@192.168.23.176;transport=ws'
@@ -151,7 +150,72 @@ const audioRef = ref()
 // let localStream: MediaStream | null = null
 let remoteStream: MediaStream | null = null
 
+// 成功的回调函数
+const success = (stream) => {
+  console.log("已点击允许,开启成功");
+}
+// 异常的回调函数
+const error = (error) => {
+  console.log("访问用户媒体设备失败：", error.name, error.message);
+}
+const getUserMedia = (constrains) => {
+  if (navigator.mediaDevices.getUserMedia) {
+    // 最新标准API
+    navigator.mediaDevices.getUserMedia(constrains).then(stream => {
+      success(stream);
+    }).catch(err => {
+      error(err);
+    });
+  } else if (navigator.webkitGetUserMedia) {
+    // webkit内核浏览器
+    navigator.webkitGetUserMedia(constrains).then(stream => {
+      success(stream);
+    }).catch(err => {
+      error(err);
+    });
+  } else if (navigator.mozGetUserMedia) {
+    // Firefox浏览器
+    navigator.mozGetUserMedia(constrains).then(stream => {
+      success(stream);
+    }).catch(err => {
+      error(err);
+    });
+  } else if (navigator.getUserMedia) {
+    // 旧版API
+    navigator.getUserMedia(constrains).then(stream => {
+      success(stream);
+    }).catch(err => {
+      error(err);
+    });
+  }
+}
+
+// @ts-ignore
+if (navigator?.mediaDevices?.getUserMedia || navigator?.getUserMedia || navigator?.webkitGetUserMedia || navigator?.mozGetUserMedia) {
+  getUserMedia({ video: true, audio: true }); // 调用用户媒体设备，访问摄像头、录音
+} else {
+  console.log("你的浏览器不支持访问用户媒体设备");
+}
 const initSip = () => {
+  // 如果当前页面支持麦克风权限，比如https页面，或者用户手动开启
+  navigator.mediaDevices.getUserMedia({ audio: true }).then((stream: any) => {
+    // 用户允许麦克风
+    // @ts-ignore
+    console.log('有麦克风权限', stream)
+    // 测试结束，关闭麦克风
+    try {
+      stream.getTracks().forEach((track: MediaStreamTrack) => {
+        track.stop()
+      })
+    } catch (e) {
+      console.error('测试麦克风后关闭失败', e)
+    }
+  }).catch((error: any) => {
+    // 用户拒绝麦克风
+    console.error('没有麦克风权限', error)
+    alert('请检查浏览器麦克风权限 无法接通电话')
+  })
+
   const socket = new JsSip.WebSocketInterface(WS_URI.value)
   const config = {
     sockets: [socket],
@@ -173,10 +237,7 @@ const initSip = () => {
   })
 
   ua.on('newRTCSession', (e: RTCSessionEvent) => {
-    console.log('newRTCSession', e)
-    console.log('*************** e.session.connection', e.session.connection)
-    console.log('--------------- newRTCSession getRemoteStreams', e.session?.connection?.getRemoteStreams()[0])
-
+    console.log('*************** e.session', e.session)
     // 通话呼入
     if (e.originator == 'remote') {
       // 接电话
@@ -190,7 +251,7 @@ const initSip = () => {
         },
         mediaStream: remoteStream
       })
-      console.log('--------------- incoming getRemoteStreams', e.session?.connection?.getRemoteStreams()[0])
+      console.log('--------------- incoming', e.session?.connection)
     } else {
       // 打电话
       console.log('outgoing')
@@ -199,22 +260,15 @@ const initSip = () => {
         currentSession = outgoingSession
         outgoingSession = null
       })
-      console.log('--------------- outgoing getRemoteStreams', e.session?.connection?.getRemoteStreams()[0])
+      console.log('--------------- outgoing', e.session?.connection)
     }
     e.session.on('accepted', function (data: OutgoingEvent) {
       console.info('onAccepted - ', data)
-
       if (data.originator == 'remote' && currentSession == null) {
         currentSession = incomingSession
         incomingSession = null
         console.info('setCurrentSession - ', currentSession)
       }
-      console.log('--------------- accepted getRemoteStreams', e.session.connection.getRemoteStreams()[0])
-      remoteStream = e.session?.connection?.getRemoteStreams()[0] ?? null
-      audioRef.value.srcObject = remoteStream
-      audioRef.value.load()
-      audioRef.value.play().catch(() => {
-      })
     })
     e.session.on('confirmed', function (data: IncomingAckEvent | OutgoingAckEvent) {
       console.info('onConfirmed - ', data)
@@ -223,39 +277,27 @@ const initSip = () => {
         incomingSession = null
         console.info('setCurrentSession - ', currentSession)
       }
-      console.log('--------------- confirmed getRemoteStreams', e.session?.connection?.getRemoteStreams()[0])
-      remoteStream = e.session?.connection?.getRemoteStreams()[0] ?? null
-      audioRef.value.srcObject = remoteStream
-      audioRef.value.load()
-      audioRef.value.play().catch(() => {
-      })
+      const stream = new MediaStream();
+      const receivers = e.session.connection?.getReceivers();
+      console.log('receivers', receivers)
+      if (receivers) receivers.forEach((receiver) => stream.addTrack(receiver.track));
+      audioRef.value.srcObject = stream;
+      // 最后都要播放
+      audioRef.value.play();
     })
     e.session.on('sdp', function (data: SDPEvent) {
       // console.info('onSDP, type - ', data.type, ' sdp - ', data.sdp)
       console.info('onSDP, type - ', data.type)
     })
     e.session.on('progress', function (data: IncomingEvent | OutgoingEvent) {
-      console.info('onProgress - ', data.originator)
+      console.log('--------------- progress', e.session?.connection)
       if (data.originator == 'remote') {
         console.info('onProgress, response - ', data.response)
       }
-      console.log('--------------- progress getRemoteStreams', e.session?.connection?.getRemoteStreams()[0])
-    })
-    e.session.on('peerconnection', function (data: PeerConnectionEvent) {
-      console.log('peerconnection', data)
-      // console.log('--------------- connection', e.session.connection.getRemoteStreams()[0])
-      // console.warn('------------------ onPeerconnection - ', data.peerconnection)
-      // const receivers = data.peerconnection?.getRemoteStreams()[0]
-      // console.log('receivers', receivers)
-      // const streamList = data.peerconnection?.getRemoteStreams()
-      // console.log('streamList[0]', streamList[0])
-      // audioRef.value.srcObject = streamList[0] ?? null
-      // audioRef.value.load()
-      // audioRef.value.play()+
     })
   })
   ua.on('newMessage', (e: IncomingMessageEvent | OutgoingMessageEvent) => {
-    console.log('newMessage', e?.request?.body, e)
+    console.log('newMessage', e?.request?.body)
   })
   ua.on('newOptions', (e: IncomingOptionsEvent | OutgoingOptionsEvent) => {
     console.log('newOptions', e)
@@ -314,17 +356,17 @@ const makeCall = () => {
     // }
   };
   outgoingSession = ua?.call(REMOTE_SIP_URI.value, options) ?? null;
-  console.log('session', outgoingSession)
+  console.log('makeCall session', outgoingSession)
 }
 
 const onClickSend = () => {
   const text = 'HelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHello';
   const eventHandlers = {
-    'succeeded': function (e: any) {
-      console.log('message succeeded', e)
+    'succeeded': function () {
+      console.log('message succeeded')
     },
-    'failed': function (e: any) {
-      console.log('message failed', e)
+    'failed': function () {
+      console.log('message failed')
     }
   };
   const options = {
