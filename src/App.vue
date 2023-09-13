@@ -326,6 +326,7 @@ const initSip = () => {
 const killSip = () => {
   ua?.terminateSessions()
   ua?.stop()
+  ua = null
 }
 
 const makeCall = () => {
