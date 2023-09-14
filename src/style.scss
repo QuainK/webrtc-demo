@@ -22,3 +22,36 @@ body {
   width: 100%;
   height: 100%;
 }
+.button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  width: 80px;
+  height: 45px;
+  margin-left: 1em;
+  border-radius: 6px;
+  font-size: 18px;
+  color: #fff;
+  user-select: none;
+  &:first-child {
+    margin-left: 0;
+  }
+  &.button-enable {
+    background-color: #1abc9c;
+    cursor: pointer;
+    &:hover {
+      background-color: #48c9b0;
+      box-shadow: none;
+    }
+    &:active {
+      background-color: #16a085;
+      box-shadow: 0 0 0 .2rem rgba(0, 123, 255, .5);
+    }
+  }
+  &.button-disable {
+    display: none;
+    background-color: #bdc3c7;
+    cursor: not-allowed;
+  }
+}
