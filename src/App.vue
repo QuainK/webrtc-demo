@@ -127,7 +127,8 @@ const TURN_URI = ref('')
 const REMOTE_SIP_URI = ref('')
 
 if (hostname === '84') {
-  WS_URI.value = 'ws://192.168.23.84:5066'
+  // WS_URI.value = 'ws://192.168.23.84:5066'
+  WS_URI.value = 'wss://192.168.23.84:7443'
   LOCAL_SIP_URI.value = 'sip:1007@192.168.23.84;transport=ws'
   PASSWORD.value = '1234'
   TURN_URI.value = 'turn:192.168.23.176:3478?transport=tcp'
