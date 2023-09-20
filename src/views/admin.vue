@@ -87,7 +87,7 @@ window.addEventListener('beforeunload', () => {
 })
 
 // const hostname: string = '176'
-const hostname: string = '84'
+const hostname: string = '113'
 
 const WS_URI = ref('')
 const LOCAL_SIP_URI = ref('')
@@ -95,15 +95,12 @@ const PASSWORD = ref('')
 const TURN_URI = ref('')
 const REMOTE_SIP_URI = ref('')
 
-if (hostname === '84') {
-  // WS_URI.value = 'ws://192.168.23.84:5066'
-  // WS_URI.value = 'wss://192.168.23.84:7443'
-  // WS_URI.value = 'wss://test.com/Websocket'
-  WS_URI.value = 'wss://192.168.137.1/wss'
-  LOCAL_SIP_URI.value = 'sip:1001@192.168.23.84;transport=ws'
+if (hostname === '113') {
+  WS_URI.value = 'wss://192.168.23.113:7443'
+  LOCAL_SIP_URI.value = 'sip:1007@192.168.23.113;transport=ws'
   PASSWORD.value = '1234'
   TURN_URI.value = 'turn:192.168.23.176:3478?transport=tcp'
-  REMOTE_SIP_URI.value = 'sip:1003@192.168.23.84;transport=ws'
+  REMOTE_SIP_URI.value = 'sip:1008@192.168.23.113;transport=ws'
 } else if (hostname === '176') {
   WS_URI.value = 'ws://192.168.23.176:5066'
   LOCAL_SIP_URI.value = 'sip:1014@192.168.23.176;transport=ws'
