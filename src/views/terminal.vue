@@ -192,7 +192,7 @@ const getUserMedia = (constrains) => {
 
 // @ts-ignore
 if (navigator?.mediaDevices?.getUserMedia || navigator?.getUserMedia || navigator?.webkitGetUserMedia || navigator?.mozGetUserMedia) {
-  // getUserMedia({ video: true, audio: true }); // 调用用户媒体设备，访问摄像头、录音
+  // getUserMedia({ video: false, audio: true }); // 调用用户媒体设备，访问摄像头、录音
 } else {
   alert('你的浏览器不支持访问用户媒体设备')
   console.error("你的浏览器不支持访问用户媒体设备");
