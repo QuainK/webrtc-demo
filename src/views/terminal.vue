@@ -128,6 +128,8 @@ const REMOTE_SIP_URI = ref('')
 
 if (hostname === '113') {
   WS_URI.value = 'wss://192.168.23.113:7443'
+  // WS_URI.value = 'wss://192.168.123.64:7443'
+  // WS_URI.value = 'wss://192.168.137.1:7443'
   LOCAL_SIP_URI.value = 'sip:1007@192.168.23.113;transport=ws'
   PASSWORD.value = '1234'
   TURN_URI.value = 'turn:192.168.23.176:3478?transport=tcp'
@@ -151,14 +153,14 @@ const audioRef = ref()
 let remoteStream: MediaStream | null = null
 
 // 成功的回调函数
-const success = (stream) => {
+const success = (stream: any) => {
   console.log("已点击允许,开启成功");
 }
 // 异常的回调函数
-const error = (error) => {
+const error = (error: any) => {
   console.log("访问用户媒体设备失败：", error.name, error.message);
 }
-const getUserMedia = (constrains) => {
+const getUserMedia = (constrains: any) => {
   if (navigator.mediaDevices.getUserMedia) {
     // 最新标准API
     navigator.mediaDevices.getUserMedia(constrains).then(stream => {
@@ -166,25 +168,31 @@ const getUserMedia = (constrains) => {
     }).catch(err => {
       error(err);
     });
+    // @ts-ignore
   } else if (navigator.webkitGetUserMedia) {
     // webkit内核浏览器
+    // @ts-ignore
     navigator.webkitGetUserMedia(constrains).then(stream => {
       success(stream);
-    }).catch(err => {
+    }).catch((err: any) => {
       error(err);
     });
+    // @ts-ignore
   } else if (navigator.mozGetUserMedia) {
     // Firefox浏览器
+    // @ts-ignore
     navigator.mozGetUserMedia(constrains).then(stream => {
       success(stream);
-    }).catch(err => {
+    }).catch((err: any) => {
       error(err);
     });
+    // @ts-ignore
   } else if (navigator.getUserMedia) {
     // 旧版API
+    // @ts-ignore
     navigator.getUserMedia(constrains).then(stream => {
       success(stream);
-    }).catch(err => {
+    }).catch((err: any) => {
       error(err);
     });
   }
@@ -315,7 +323,7 @@ const initSip = () => {
   ua.on('registrationFailed', (e) => {
     console.log('registrationFailed', e)
   })
-  ua.on('registrationExpiring', (e) => {
+  ua.on('registrationExpiring', (e: any) => {
     console.log('registrationExpiring', e)
   })
 
