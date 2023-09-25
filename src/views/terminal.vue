@@ -2,26 +2,26 @@
   <div class="box">
     <div class="input">
       <p class="input-label">FreeSwitch 服务器 WebSocket 地址：</p>
-      <input v-model="WS_URI" class="input-text" type="text">
+      <input v-model="webrtcConfig.wsUri" class="input-text" type="text" @input="updateInput('wsUri')">
     </div>
     <div class="input">
       <p class="input-label">本机 SIP 地址：</p>
-      <input v-model="LOCAL_SIP_URI" class="input-text" type="text">
+      <input v-model="webrtcConfig.localSipUri" class="input-text" type="text" @input="updateInput('localSipUri')">
     </div>
     <div class="input">
       <p class="input-label">本机 SIP 密码：</p>
-      <input v-model="PASSWORD" class="input-text" type="password">
+      <input v-model="webrtcConfig.password" class="input-text" type="password" @input="updateInput('password')">
     </div>
     <!--<div class="input">-->
     <!--  <p class="input-label">TURN 服务器地址：</p>-->
-    <!--  <input v-model="TURN_URI" class="input-text" type="text">-->
+    <!--  <input v-model="webrtcConfig.turnUri" class="input-text" type="text">-->
     <!--</div>-->
 
     <hr>
 
     <div class="input">
       <p class="input-label">对方 SIP 地址：</p>
-      <input v-model="REMOTE_SIP_URI" class="input-text" type="text">
+      <input v-model="webrtcConfig.remoteSipUri" class="input-text" type="text" @input="updateInput('remoteSipUri')">
     </div>
 
     <audio ref="audioRef" controls></audio>
@@ -37,11 +37,13 @@
         发消息
       </div>
     </div>
+
+    <!--TODO 正在通话的号码列表，需要添加挂断等按钮，以及显示时间-->
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import * as JsSip from 'jssip'
 import {
   CallOptions,
@@ -67,7 +69,7 @@ import VConsole from 'vconsole';
 // const vConsole = new VConsole({ theme: 'dark' });
 const vConsole = new VConsole();
 // 接下来即可照常使用 `console` 等方法
-console.log('Hello world', vConsole);
+console.log('vConsole', vConsole);
 // 结束调试后，可移除掉
 // vConsole.destroy();
 
@@ -117,30 +119,13 @@ window.addEventListener('beforeunload', () => {
   stopService()
 })
 
-// const hostname: string = '176'
-const hostname: string = '113'
-
-const WS_URI = ref('')
-const LOCAL_SIP_URI = ref('')
-const PASSWORD = ref('')
-const TURN_URI = ref('')
-const REMOTE_SIP_URI = ref('')
-
-if (hostname === '113') {
-  WS_URI.value = 'wss://192.168.23.113:7443'
-  // WS_URI.value = 'wss://192.168.123.64:7443'
-  // WS_URI.value = 'wss://192.168.137.1:7443'
-  LOCAL_SIP_URI.value = 'sip:1007@192.168.23.113;transport=ws'
-  PASSWORD.value = '1234'
-  TURN_URI.value = 'turn:192.168.23.176:3478?transport=tcp'
-  REMOTE_SIP_URI.value = 'sip:1008@192.168.23.113;transport=ws'
-} else if (hostname === '176') {
-  WS_URI.value = 'ws://192.168.23.176:5066'
-  LOCAL_SIP_URI.value = 'sip:1014@192.168.23.176;transport=ws'
-  PASSWORD.value = '1234'
-  TURN_URI.value = 'turn:192.168.23.176:3478?transport=tcp'
-  REMOTE_SIP_URI.value = 'sip:1015@192.168.23.176;transport=ws'
-}
+const webrtcConfig = reactive({
+  wsUri: localStorage.getItem('wsUri') ?? 'wss://192.168.23.113:7443',
+  localSipUri: localStorage.getItem('localSipUri') ?? 'sip:1007@192.168.23.113;transport=ws',
+  password: localStorage.getItem('password') ?? '1234',
+  turnUri: localStorage.getItem('turnUri') ?? 'turn:192.168.23.176:3478?transport=tcp',
+  remoteSipUri: localStorage.getItem('remoteSipUri') ?? 'sip:1008@192.168.23.113;transport=ws'
+})
 
 let ua: UA | null = null
 
@@ -149,8 +134,16 @@ let incomingSession: RTCSession | null = null
 let currentSession: RTCSession | null = null
 
 const audioRef = ref()
-// let localStream: MediaStream | null = null
-let remoteStream: MediaStream | null = null
+let localStream: MediaStream | null = null
+// let remoteStream: MediaStream | null = null
+
+const updateInput = (type: string = '') => {
+  console.log('updateInput', type)
+  if (webrtcConfig[type]) {
+    console.log('webrtcConfig[type]', webrtcConfig[type])
+    localStorage.setItem(type, webrtcConfig[type])
+  }
+}
 
 // 成功的回调函数
 const success = (stream: any) => {
@@ -227,12 +220,12 @@ const initSip = () => {
     alert('请检查浏览器麦克风权限 无法接通电话')
   })
 
-  const socket = new JsSip.WebSocketInterface(WS_URI.value)
+  const socket = new JsSip.WebSocketInterface(webrtcConfig.wsUri)
   const config = {
     sockets: [socket],
-    outbound_proxy_set: WS_URI.value,
-    uri: LOCAL_SIP_URI.value,
-    password: PASSWORD.value,
+    outbound_proxy_set: webrtcConfig.wsUri,
+    uri: webrtcConfig.localSipUri,
+    password: webrtcConfig.password,
     session_timers: false,
     register: true,
   }
@@ -260,7 +253,7 @@ const initSip = () => {
           video: false,
           mandatory: { maxWidth: 640, maxHeight: 360 }
         },
-        mediaStream: remoteStream
+        mediaStream: localStream
       })
       console.log('--------------- incoming', e.session?.connection)
     } else {
@@ -358,16 +351,16 @@ const makeCall = () => {
   const options: CallOptions = {
     'eventHandlers': eventHandlers,
     'mediaConstraints': { 'audio': true, 'video': false },
-    // 'mediaStream': remoteStream ?? undefined,
+    // 'mediaStream': localStream ?? undefined,
     'sessionTimersExpires': 120,
     // 'pcConfig': {
     //   'iceServers': [
     //     // { 'urls': ['stun:a.example.com', 'stun:b.example.com'] },
-    //     { 'urls': TURN_URI.value, 'username': 'username', 'credential': 'PASSWORD.value' }
+    //     { 'urls': turnUri.value, 'username': 'username', 'credential': 'PASSWORD.value' }
     //   ]
     // }
   };
-  outgoingSession = ua?.call(REMOTE_SIP_URI.value, options) ?? null;
+  outgoingSession = ua?.call(webrtcConfig.remoteSipUri, options) ?? null;
   console.log('makeCall session', outgoingSession)
 }
 
@@ -384,7 +377,7 @@ const onClickSend = () => {
   const options = {
     'eventHandlers': eventHandlers
   };
-  ua?.sendMessage(REMOTE_SIP_URI.value, text, options);
+  ua?.sendMessage(webrtcConfig.remoteSipUri, text, options);
 }
 </script>
 
