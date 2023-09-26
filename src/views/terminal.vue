@@ -120,7 +120,8 @@ window.addEventListener('beforeunload', () => {
 })
 
 const webrtcConfig = reactive({
-  wsUri: localStorage.getItem('wsUri') ?? 'wss://192.168.23.113:7443',
+  // wsUri: localStorage.getItem('wsUri') ?? 'wss://192.168.23.113:7443',
+  wsUri: localStorage.getItem('wsUri') ?? 'wss://192.168.23.17/wss',
   localSipUri: localStorage.getItem('localSipUri') ?? 'sip:1007@192.168.23.113;transport=ws',
   password: localStorage.getItem('password') ?? '1234',
   turnUri: localStorage.getItem('turnUri') ?? 'turn:192.168.23.176:3478?transport=tcp',
