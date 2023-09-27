@@ -1,49 +1,58 @@
 <template>
-  <div class="box">
-    <div class="input">
-      <p class="input-label">FreeSwitch 服务器 WebSocket 地址：</p>
-      <input v-model="webrtcConfig.wsUri" class="input-text" type="text" @input="updateInput('wsUri')">
-    </div>
-    <div class="input">
-      <p class="input-label">本机 SIP 地址：</p>
-      <input v-model="webrtcConfig.localSipUri" class="input-text" type="text" @input="updateInput('localSipUri')">
-    </div>
-    <div class="input">
-      <p class="input-label">本机 SIP 密码：</p>
-      <input v-model="webrtcConfig.password" class="input-text" type="password" @input="updateInput('password')">
-    </div>
-    <!--<div class="input">-->
-    <!--  <p class="input-label">TURN 服务器地址：</p>-->
-    <!--  <input v-model="webrtcConfig.turnUri" class="input-text" type="text">-->
-    <!--</div>-->
+  <el-form :model="webrtcConfig" label-position="top" :disabled="active">
+    <el-form-item label="FreeSwitch 服务器 WebSockets 地址">
+      <el-input style="width: 350px;" v-model="webrtcConfig.registerUri" clearable @input="updateInput('registerUri')" />
+    </el-form-item>
+    <el-form-item label="本机 SIP 地址">
+      <el-input style="width: 350px;" v-model="webrtcConfig.localSipUri" clearable @input="updateInput('localSipUri')" />
+    </el-form-item>
+    <el-form-item label="本机 SIP 密码">
+      <el-input style="width: 350px;" v-model="webrtcConfig.localSipPassword" clearable show-password @input="updateInput('localSipPassword')" />
+    </el-form-item>
+    <el-form-item>
+      <template #label>
+        TURN 服务器地址（公网环境NAT穿透）
+        <el-switch
+          v-model="webrtcConfig.turnEnabled"
+          style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ccc" @input="updateInput('turnEnabled')"
+        />
+      </template>
+      <el-input v-show="webrtcConfig.turnEnabled" style="width: 350px;" v-model="webrtcConfig.turnUri" clearable :disabled="!webrtcConfig.turnEnabled" @change="updateInput('turnUri')" />
+    </el-form-item>
+  </el-form>
 
-    <hr>
-
-    <div class="input">
-      <p class="input-label">对方 SIP 地址：</p>
-      <input v-model="webrtcConfig.remoteSipUri" class="input-text" type="text" @input="updateInput('remoteSipUri')">
-    </div>
-
-    <audio ref="audioRef" controls></audio>
-
-    <div class="button-box">
-      <div class="button button-enable" @click.stop.capture="onClickSwitch">
-        {{ buttonText }}
-      </div>
-      <div class="button" :class="active ? 'button-enable' : 'button-disable'" @click.stop.capture="onClickCall">
-        呼叫
-      </div>
-      <div class="button" :class="active ? 'button-enable' : 'button-disable'" @click.stop.capture="onClickSend">
-        发消息
-      </div>
-    </div>
-
-    <!--TODO 正在通话的号码列表，需要添加挂断等按钮，以及显示时间-->
+  <div class="button-box">
+    <el-button @click="onClickConnect" :disabled="active" :type="active ? '' : 'success'">连接</el-button>
+    <el-button @click="onClickDisconnect" :disabled="!active" :type="active ? 'danger' : ''">断开</el-button>
   </div>
+  <el-divider />
+
+  <el-form :model="webrtcConfig" label-position="top">
+    <el-form-item label="对方 SIP 地址">
+      <el-input style="width: 280px;" v-model="webrtcConfig.remoteSipUri" clearable @input="updateInput('remoteSipUri')" />
+      <el-button @click="onClickCall" :disabled="!active" type="primary" style="margin-left: 6px;">呼叫</el-button>
+    </el-form-item>
+    <el-form-item label="待发送的文本消息">
+      <el-input style="width: 280px;" v-model="webrtcConfig.msg" clearable @input="updateInput('msg')" />
+      <el-button @click="onClickSend" :disabled="!active" type="primary" style="margin-left: 6px;">发送</el-button>
+    </el-form-item>
+  </el-form>
+
+  <audio v-show="false" ref="audioRef" controls></audio>
+
+  <el-text>正在通话列表</el-text>
+  <el-table :data="callList" border stripe height="150" class="call-list">
+    <el-table-column prop="remoteSipUri" label="对方 SIP 地址" width="300" align="left" />
+    <el-table-column prop="remoteSipUri" label="操作" fixed="right" width="200" align="center">
+      <el-button size="small" type="info">静音</el-button>
+      <el-button size="small" type="warning">闭麦</el-button>
+      <el-button size="small" type="danger">挂断</el-button>
+    </el-table-column>
+  </el-table>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { reactive, ref } from 'vue'
 import * as JsSip from 'jssip'
 import {
   CallOptions,
@@ -64,6 +73,7 @@ import {
   SDPEvent
 } from 'jssip/lib/RTCSession'
 import VConsole from 'vconsole';
+import { ElMessage } from 'element-plus'
 
 // 或者使用配置参数来初始化，详情见文档
 // const vConsole = new VConsole({ theme: 'dark' });
@@ -75,26 +85,20 @@ console.log('vConsole', vConsole);
 
 // 按钮状态
 const active = ref(false)
-// 按钮文本
-const buttonText = computed(() => {
-  return active.value ? '断开' : '连接'
-})
-/**
- * 点击启停按钮
- */
-const onClickSwitch = () => {
-  // 切换状态
-  if (active.value) {
-    stopService()
-  } else {
-    startService()
-  }
-}
+
 /**
  * 点击呼叫按钮
  */
 const onClickCall = () => {
   makeCall()
+}
+
+const onClickConnect = () => {
+  startService()
+}
+
+const onClickDisconnect = () => {
+  stopService()
 }
 
 /**
@@ -120,12 +124,16 @@ window.addEventListener('beforeunload', () => {
 })
 
 const webrtcConfig = reactive({
-  // wsUri: localStorage.getItem('wsUri') ?? 'wss://192.168.23.113:7443',
-  wsUri: localStorage.getItem('wsUri') ?? 'wss://192.168.23.17/wss',
+  // registerUri: localStorage.getItem('registerUri') ?? 'wss://192.168.23.113:7443',
+  registerUri: localStorage.getItem('registerUri') ?? 'wss://192.168.23.17/wss',
   localSipUri: localStorage.getItem('localSipUri') ?? 'sip:1007@192.168.23.113;transport=ws',
-  password: localStorage.getItem('password') ?? '1234',
+  localSipPassword: localStorage.getItem('localSipPassword') ?? '1234',
+  // TURN服务器启用状态
+  // 注意localStorage是字符串，不是布尔值
+  turnEnabled: JSON.parse(localStorage.getItem('turnEnabled')) ?? false,
   turnUri: localStorage.getItem('turnUri') ?? 'turn:192.168.23.176:3478?transport=tcp',
-  remoteSipUri: localStorage.getItem('remoteSipUri') ?? 'sip:1008@192.168.23.113;transport=ws'
+  remoteSipUri: localStorage.getItem('remoteSipUri') ?? 'sip:1008@192.168.23.113;transport=ws',
+  msg: localStorage.getItem('msg') ?? 'Hello! 你好！'
 })
 
 let ua: UA | null = null
@@ -134,16 +142,25 @@ let outgoingSession: RTCSession | null = null
 let incomingSession: RTCSession | null = null
 let currentSession: RTCSession | null = null
 
+const callList = reactive([
+  { remoteSipUri: webrtcConfig.remoteSipUri, },
+  { remoteSipUri: webrtcConfig.remoteSipUri, },
+  { remoteSipUri: webrtcConfig.remoteSipUri, },
+  { remoteSipUri: webrtcConfig.remoteSipUri, },
+  { remoteSipUri: webrtcConfig.remoteSipUri, },
+  { remoteSipUri: webrtcConfig.remoteSipUri, },
+  { remoteSipUri: webrtcConfig.remoteSipUri, },
+  { remoteSipUri: webrtcConfig.remoteSipUri, },
+])
+
 const audioRef = ref()
 let localStream: MediaStream | null = null
 // let remoteStream: MediaStream | null = null
 
 const updateInput = (type: string = '') => {
-  console.log('updateInput', type)
-  if (webrtcConfig[type]) {
-    console.log('webrtcConfig[type]', webrtcConfig[type])
-    localStorage.setItem(type, webrtcConfig[type])
-  }
+  // console.log('updateInput', type)
+  // console.log('webrtcConfig[type]', webrtcConfig[type])
+  localStorage.setItem(type, webrtcConfig[type])
 }
 
 // 成功的回调函数
@@ -221,12 +238,12 @@ const initSip = () => {
     alert('请检查浏览器麦克风权限 无法接通电话')
   })
 
-  const socket = new JsSip.WebSocketInterface(webrtcConfig.wsUri)
+  const socket = new JsSip.WebSocketInterface(webrtcConfig.registerUri)
   const config = {
     sockets: [socket],
-    outbound_proxy_set: webrtcConfig.wsUri,
+    outbound_proxy_set: webrtcConfig.registerUri,
     uri: webrtcConfig.localSipUri,
-    password: webrtcConfig.password,
+    password: webrtcConfig.localSipPassword,
     session_timers: false,
     register: true,
   }
@@ -366,13 +383,21 @@ const makeCall = () => {
 }
 
 const onClickSend = () => {
-  const text = 'HelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHelloHello';
+  const text = webrtcConfig.msg
   const eventHandlers = {
     'succeeded': function () {
       console.log('message succeeded')
+      // ElMessage({
+      //   message: '发送成功',
+      //   type: 'success'
+      // })
     },
     'failed': function () {
       console.log('message failed')
+      // ElMessage({
+      //   message: '发送成功',
+      //   type: 'error'
+      // })
     }
   };
   const options = {
@@ -383,6 +408,12 @@ const onClickSend = () => {
 </script>
 
 <style scoped lang="scss">
+.button-box {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
 .box {
   display: flex;
   flex-direction: column;
@@ -390,7 +421,6 @@ const onClickSend = () => {
   align-items: center;
   overflow-y: auto;
   width: 100%;
-  max-width: 300px;
   // padding: 10px;
   height: 100%;
   margin: 0 auto;
@@ -431,5 +461,9 @@ hr {
   flex-direction: row;
   justify-content: center;
   align-items: center;
+}
+.call-list {
+  width: auto;
+  margin: 20px auto;
 }
 </style>
