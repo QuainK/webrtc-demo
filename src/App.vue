@@ -1,35 +1,41 @@
 <template>
-  <div class="box">
-    <router-link to="/terminal">WebRTC Demo 终端</router-link>
-    <router-link to="/admin">人工客服后台</router-link>
+  <div class="button-box">
+    <el-button size="large" type="success" @click="onClickButton('terminal')">
+      WebRTC Demo 终端
+    </el-button>
 
-    <div>
-      <router-view></router-view>
-    </div>
+    <el-button size="large" type="success" @click="onClickButton('admin')">
+      人工客服后台
+    </el-button>
+  </div>
+
+  <div class="content-box">
+    <router-view></router-view>
   </div>
 </template>
 
 <script setup lang="ts">
+import router from '@/router'
+
+const onClickButton = (path: string = 'terminal') => {
+  router.push({
+    path: '/' + path
+  })
+}
 </script>
 
 <style scoped lang="scss">
-.box {
+.button-box {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  margin: 20px 0;
+}
+.content-box {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   align-items: center;
-  overflow-y: auto;
-  width: 100%;
-  max-width: 300px;
-  // padding: 10px;
-  height: 100%;
-  margin: 0 auto;
-  & > * {
-    flex: none;
-    margin-top: 20px;
-    &:first-child {
-      margin-top: 0;
-    }
-  }
 }
 </style>
