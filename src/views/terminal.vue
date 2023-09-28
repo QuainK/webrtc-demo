@@ -22,19 +22,41 @@
   </el-form>
 
   <div class="button-box">
-    <el-button @click="onClickConnect" :disabled="active" :type="active ? '' : 'success'">连接</el-button>
-    <el-button @click="onClickDisconnect" :disabled="!active" :type="active ? 'danger' : ''">断开</el-button>
+    <el-button @click="onClickConnect" :disabled="active" :plain="active" :type="active ? '' : 'success'">
+      连接
+    </el-button>
+    <el-button @click="onClickDisconnect" :disabled="!active" :plain="!active" :type="active ? 'danger' : ''">
+      断开
+    </el-button>
   </div>
-  <el-divider />
+  <el-divider style="width: 300px;" />
 
   <el-form :model="webrtcConfig" label-position="top">
     <el-form-item label="对方 SIP 地址">
       <el-input style="width: 280px;" v-model="webrtcConfig.remoteSipUri" clearable @input="updateInput('remoteSipUri')" />
-      <el-button @click="onClickCall" :disabled="!active" type="primary" style="margin-left: 6px;">呼叫</el-button>
+      <el-button @click="onClickCall" :disabled="!active" :plain="!active" type="primary" style="margin-left: 6px;">
+        呼叫
+      </el-button>
     </el-form-item>
     <el-form-item label="待发送的文本消息">
       <el-input style="width: 280px;" v-model="webrtcConfig.msg" clearable @input="updateInput('msg')" />
-      <el-button @click="onClickSend" :disabled="!active" type="primary" style="margin-left: 6px;">发送</el-button>
+      <el-button @click="onClickSend" :disabled="!active" :plain="!active" type="primary" style="margin-left: 6px;">
+        发送
+      </el-button>
+    </el-form-item>
+    <el-form-item>
+      <template #label>
+        收到的消息
+        <el-button type="info" style="margin-left: 6px;">清空</el-button>
+
+      </template>
+      <el-input
+        :rows="3"
+        readonly
+        resize="none"
+        type="textarea"
+        placeholder="暂未收到任何消息"
+      />
     </el-form-item>
   </el-form>
 
@@ -43,9 +65,11 @@
   <el-text>正在通话列表</el-text>
   <el-table :data="callList" border stripe height="150" class="call-list">
     <el-table-column prop="remoteSipUri" label="对方 SIP 地址" width="300" align="left" />
-    <el-table-column prop="remoteSipUri" label="操作" fixed="right" width="200" align="center">
-      <el-button size="small" type="info">静音</el-button>
-      <el-button size="small" type="warning">闭麦</el-button>
+    <!--<el-table-column prop="remoteSipUri" label="操作" fixed="right" width="260" align="center">-->
+    <el-table-column prop="remoteSipUri" label="操作" fixed="right" width="140" align="center">
+      <!--<el-button size="small" type="info">静音</el-button>-->
+      <!--<el-button size="small" type="warning">闭麦</el-button>-->
+      <el-button size="small" type="success" plain disabled>接听</el-button>
       <el-button size="small" type="danger">挂断</el-button>
     </el-table-column>
   </el-table>
@@ -144,13 +168,13 @@ let currentSession: RTCSession | null = null
 
 const callList = reactive([
   { remoteSipUri: webrtcConfig.remoteSipUri, },
-  { remoteSipUri: webrtcConfig.remoteSipUri, },
-  { remoteSipUri: webrtcConfig.remoteSipUri, },
-  { remoteSipUri: webrtcConfig.remoteSipUri, },
-  { remoteSipUri: webrtcConfig.remoteSipUri, },
-  { remoteSipUri: webrtcConfig.remoteSipUri, },
-  { remoteSipUri: webrtcConfig.remoteSipUri, },
-  { remoteSipUri: webrtcConfig.remoteSipUri, },
+  // { remoteSipUri: webrtcConfig.remoteSipUri, },
+  // { remoteSipUri: webrtcConfig.remoteSipUri, },
+  // { remoteSipUri: webrtcConfig.remoteSipUri, },
+  // { remoteSipUri: webrtcConfig.remoteSipUri, },
+  // { remoteSipUri: webrtcConfig.remoteSipUri, },
+  // { remoteSipUri: webrtcConfig.remoteSipUri, },
+  // { remoteSipUri: webrtcConfig.remoteSipUri, },
 ])
 
 const audioRef = ref()

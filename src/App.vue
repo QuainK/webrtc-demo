@@ -1,13 +1,13 @@
 <template>
-  <div class="button-box">
-    <el-button type="primary" @click="onClickButton('terminal')">
-      客户终端
-    </el-button>
+  <!--<div class="button-box">-->
+  <!--  <el-button type="primary" @click="onClickButton('terminal')">-->
+  <!--    客户终端-->
+  <!--  </el-button>-->
 
-    <!--<el-button type="primary" @click="onClickButton('admin')">-->
-    <!--  人工客服后台-->
-    <!--</el-button>-->
-  </div>
+  <!--  <el-button type="primary" @click="onClickButton('admin')">-->
+  <!--    人工客服后台-->
+  <!--  </el-button>-->
+  <!--</div>-->
 
   <div class="content-box">
     <router-view />
@@ -38,5 +38,6 @@ const onClickButton = (path: string = 'terminal') => {
   flex-direction: column;
   justify-content: flex-start;
   align-items: center;
+  margin: 20px 0;
 }
 </style>
