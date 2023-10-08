@@ -14,7 +14,8 @@
         TURN 服务器地址（公网环境NAT穿透）
         <el-switch
           v-model="webrtcConfig.turnEnabled"
-          style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ccc" @input="updateInput('turnEnabled')"
+          style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ccc"
+          @input="updateInput('turnEnabled')"
         />
       </template>
       <el-input v-show="webrtcConfig.turnEnabled" style="width: 350px;" v-model="webrtcConfig.turnUri" clearable :disabled="!webrtcConfig.turnEnabled" @change="updateInput('turnUri')" />
@@ -63,7 +64,7 @@
   <audio v-show="false" ref="audioRef" controls></audio>
 
   <el-text>正在通话列表</el-text>
-  <el-table :data="callList" border stripe height="150" class="call-list">
+  <el-table :data="callList" border stripe class="call-list">
     <el-table-column prop="remoteSipUri" label="对方 SIP 地址" width="300" align="left" />
     <!--<el-table-column prop="remoteSipUri" label="操作" fixed="right" width="260" align="center">-->
     <el-table-column prop="remoteSipUri" label="操作" fixed="right" width="140" align="center">
@@ -97,7 +98,6 @@ import {
   SDPEvent
 } from 'jssip/lib/RTCSession'
 import VConsole from 'vconsole';
-import { ElMessage } from 'element-plus'
 
 // 或者使用配置参数来初始化，详情见文档
 // const vConsole = new VConsole({ theme: 'dark' });
@@ -182,9 +182,16 @@ let localStream: MediaStream | null = null
 // let remoteStream: MediaStream | null = null
 
 const updateInput = (type: string = '') => {
-  // console.log('updateInput', type)
+  console.log('updateInput', type, webrtcConfig[type])
   // console.log('webrtcConfig[type]', webrtcConfig[type])
   localStorage.setItem(type, webrtcConfig[type])
+  if (type === 'turnEnabled') {
+    ElMessage({
+      message: `已${webrtcConfig.turnEnabled ? '开启' : '关闭'}TURN`,
+      type: webrtcConfig.turnEnabled ? 'success' : 'info',
+      duration: 1000
+    })
+  }
 }
 
 // 成功的回调函数
@@ -233,13 +240,25 @@ const getUserMedia = (constrains: any) => {
   }
 }
 
+// TODO 规范测试麦克风权限
+
 // @ts-ignore
 if (navigator?.mediaDevices?.getUserMedia || navigator?.getUserMedia || navigator?.webkitGetUserMedia || navigator?.mozGetUserMedia) {
   // getUserMedia({ video: false, audio: true }); // 调用用户媒体设备，访问摄像头、录音
+  console.log(navigator?.mediaDevices?.getUserMedia)
+  ElMessage({
+    message: '支持麦克风权限',
+    type: 'success',
+    duration: 1000
+  })
 } else {
-  alert('你的浏览器不支持访问用户媒体设备')
-  console.error("你的浏览器不支持访问用户媒体设备");
+  ElMessage({
+    message: '不支持麦克风权限',
+    type: 'error',
+    duration: 1000
+  })
 }
+
 const initSip = () => {
   // 如果当前页面支持麦克风权限，比如https页面，或者用户手动开启
   navigator.mediaDevices.getUserMedia({ audio: true }).then((stream: any) => {
@@ -395,13 +414,19 @@ const makeCall = () => {
     'mediaConstraints': { 'audio': true, 'video': false },
     // 'mediaStream': localStream ?? undefined,
     'sessionTimersExpires': 120,
-    // 'pcConfig': {
-    //   'iceServers': [
-    //     // { 'urls': ['stun:a.example.com', 'stun:b.example.com'] },
-    //     { 'urls': turnUri.value, 'username': 'username', 'credential': 'PASSWORD.value' }
-    //   ]
-    // }
   };
+  // 启用TURN后，添加TURN服务器地址
+  if (webrtcConfig.turnEnabled) {
+    options.pcConfig = {
+      'iceServers': [
+        {
+          'urls': webrtcConfig.turnUri,
+          'username': 'username',
+          'credential': 'password'
+        }
+      ]
+    }
+  }
   outgoingSession = ua?.call(webrtcConfig.remoteSipUri, options) ?? null;
   console.log('makeCall session', outgoingSession)
 }
@@ -411,17 +436,17 @@ const onClickSend = () => {
   const eventHandlers = {
     'succeeded': function () {
       console.log('message succeeded')
-      // ElMessage({
-      //   message: '发送成功',
-      //   type: 'success'
-      // })
+      ElMessage({
+        message: '发送成功',
+        type: 'success'
+      })
     },
     'failed': function () {
       console.log('message failed')
-      // ElMessage({
-      //   message: '发送成功',
-      //   type: 'error'
-      // })
+      ElMessage({
+        message: '发送成功',
+        type: 'error'
+      })
     }
   };
   const options = {
