@@ -23,10 +23,22 @@
   </el-form>
 
   <div class="button-box">
-    <el-button @click="onClickConnect" :disabled="active" :plain="active" :type="active ? '' : 'success'">
+    <el-button
+      @click="onClickConnect"
+      :disabled="active"
+      :plain="active"
+      :type="active ? '' : 'success'"
+      :loading="loadingActive && !active"
+    >
       连接
     </el-button>
-    <el-button @click="onClickDisconnect" :disabled="!active" :plain="!active" :type="active ? 'danger' : ''">
+    <el-button
+      @click="onClickDisconnect"
+      :disabled="!active"
+      :plain="!active"
+      :type="active ? 'danger' : ''"
+      :loading="loadingActive && active"
+    >
       断开
     </el-button>
   </div>
@@ -48,10 +60,11 @@
     <el-form-item>
       <template #label>
         收到的消息
-        <el-button type="info" style="margin-left: 6px;">清空</el-button>
+        <el-button type="info" style="margin-left: 6px;" @click="onClickClear">清空</el-button>
 
       </template>
       <el-input
+        v-model="msgReceived"
         :rows="3"
         readonly
         resize="none"
@@ -73,6 +86,9 @@
       <el-button size="small" type="success" plain disabled>接听</el-button>
       <el-button size="small" type="danger">挂断</el-button>
     </el-table-column>
+    <template #empty>
+      暂无任何通话
+    </template>
   </el-table>
 </template>
 
@@ -98,6 +114,7 @@ import {
   SDPEvent
 } from 'jssip/lib/RTCSession'
 import VConsole from 'vconsole';
+import { ElMessageBox } from 'element-plus'
 
 // 或者使用配置参数来初始化，详情见文档
 // const vConsole = new VConsole({ theme: 'dark' });
@@ -109,6 +126,8 @@ console.log('vConsole', vConsole);
 
 // 按钮状态
 const active = ref(false)
+// 按钮正在切换
+const loadingActive = ref(false)
 
 /**
  * 点击呼叫按钮
@@ -118,10 +137,12 @@ const onClickCall = () => {
 }
 
 const onClickConnect = () => {
+  loadingActive.value = true
   startService()
 }
 
 const onClickDisconnect = () => {
+  loadingActive.value = true
   stopService()
 }
 
@@ -130,7 +151,6 @@ const onClickDisconnect = () => {
  */
 const startService = () => {
   console.log('%c 启动服务', 'padding: 0 10em; background-color: green; color: #fff')
-  active.value = true
   initSip()
 }
 /**
@@ -138,7 +158,6 @@ const startService = () => {
  */
 const stopService = () => {
   console.log('%c 停止服务', 'padding: 0 10em; background-color: grey; color: #fff')
-  active.value = false
   killSip()
 }
 // 关闭或刷新页面前停止服务
@@ -160,6 +179,8 @@ const webrtcConfig = reactive({
   msg: localStorage.getItem('msg') ?? 'Hello! 你好！'
 })
 
+const msgReceived = ref('')
+
 let ua: UA | null = null
 
 let outgoingSession: RTCSession | null = null
@@ -167,13 +188,6 @@ let incomingSession: RTCSession | null = null
 let currentSession: RTCSession | null = null
 
 const callList = reactive([
-  { remoteSipUri: webrtcConfig.remoteSipUri, },
-  // { remoteSipUri: webrtcConfig.remoteSipUri, },
-  // { remoteSipUri: webrtcConfig.remoteSipUri, },
-  // { remoteSipUri: webrtcConfig.remoteSipUri, },
-  // { remoteSipUri: webrtcConfig.remoteSipUri, },
-  // { remoteSipUri: webrtcConfig.remoteSipUri, },
-  // { remoteSipUri: webrtcConfig.remoteSipUri, },
   // { remoteSipUri: webrtcConfig.remoteSipUri, },
 ])
 
@@ -296,9 +310,14 @@ const initSip = () => {
   })
   ua.on('connected', (e) => {
     console.log('connected', e)
+    setTimeout(() => {
+      loadingActive.value = false
+      active.value = true
+    }, 3000)
   })
   ua.on('disconnected', (e) => {
     console.log('disconnected', e)
+    killSip(e?.error, e?.reason)
   })
 
   ua.on('newRTCSession', (e: RTCSessionEvent) => {
@@ -327,6 +346,11 @@ const initSip = () => {
       })
       console.log('--------------- outgoing', e.session?.connection)
     }
+
+    callList.push({
+      remoteSipUri: e.session + ''
+    })
+
     e.session.on('accepted', function (data: OutgoingEvent) {
       console.info('onAccepted - ', data)
       if (data.originator == 'remote' && currentSession == null) {
@@ -388,10 +412,22 @@ const initSip = () => {
   ua.start()
 }
 
-const killSip = () => {
-  ua?.terminateSessions()
-  ua?.stop()
-  ua = null
+const killSip = (isError: boolean = false, errorReason: string = '') => {
+  if (isError) {
+    ElMessageBox.alert(`网络错误，错误原因：${errorReason || 'N/A'}`, '无法连接FS服务器', {
+      confirmButtonText: '好',
+    })
+    stopService()
+    setTimeout(() => {
+      loadingActive.value = false
+      active.value = false
+    }, 1000)
+  } else {
+    active.value = false
+    ua?.terminateSessions()
+    ua?.stop()
+    ua = null
+  }
 }
 
 const makeCall = () => {
@@ -453,6 +489,10 @@ const onClickSend = () => {
     'eventHandlers': eventHandlers
   };
   ua?.sendMessage(webrtcConfig.remoteSipUri, text, options);
+}
+
+const onClickClear = () => {
+  msgReceived.value = ''
 }
 </script>
 
