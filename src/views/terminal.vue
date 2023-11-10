@@ -1,13 +1,13 @@
 <template>
   <el-form :model="webrtcConfig" label-position="top" :disabled="active">
     <el-form-item label="FreeSwitch 服务器 WebSockets 地址">
-      <el-input style="width: 350px;" v-model="webrtcConfig.registerUri" clearable @input="updateInput('registerUri')" />
+      <el-input v-model="webrtcConfig.registerUri" style="width: 350px;" clearable @input="updateInput('registerUri')" />
     </el-form-item>
     <el-form-item label="本机 SIP 地址">
-      <el-input style="width: 350px;" v-model="webrtcConfig.localSipUri" clearable @input="updateInput('localSipUri')" />
+      <el-input v-model="webrtcConfig.localSipUri" style="width: 350px;" clearable @input="updateInput('localSipUri')" />
     </el-form-item>
     <el-form-item label="本机 SIP 密码">
-      <el-input style="width: 350px;" v-model="webrtcConfig.localSipPassword" clearable show-password @input="updateInput('localSipPassword')" />
+      <el-input v-model="webrtcConfig.localSipPassword" style="width: 350px;" clearable show-password @input="updateInput('localSipPassword')" />
     </el-form-item>
     <el-form-item>
       <template #label>
@@ -18,26 +18,36 @@
           @input="updateInput('turnEnabled')"
         />
       </template>
-      <el-input v-show="webrtcConfig.turnEnabled" style="width: 350px;" v-model="webrtcConfig.turnUri" clearable :disabled="!webrtcConfig.turnEnabled" @change="updateInput('turnUri')" />
+      <el-input v-show="webrtcConfig.turnEnabled" v-model="webrtcConfig.turnUri" style="width: 350px;" clearable :disabled="!webrtcConfig.turnEnabled" @change="updateInput('turnUri')" />
+    </el-form-item>
+    <el-form-item>
+      账号状态：
+      <el-text v-if="loadingActive">
+        <el-text type="primary">正在连接</el-text>
+      </el-text>
+      <el-text v-else>
+        <el-text v-if="active" type="success">已连接</el-text>
+        <el-text v-else type="danger">未连接</el-text>
+      </el-text>
     </el-form-item>
   </el-form>
 
   <div class="button-box">
     <el-button
-      @click="onClickConnect"
       :disabled="active"
       :plain="active"
       :type="active ? '' : 'success'"
       :loading="loadingActive && !active"
+      @click="onClickConnect"
     >
       连接
     </el-button>
     <el-button
-      @click="onClickDisconnect"
       :disabled="!active"
       :plain="!active"
       :type="active ? 'danger' : ''"
       :loading="loadingActive && active"
+      @click="onClickDisconnect"
     >
       断开
     </el-button>
@@ -46,14 +56,14 @@
 
   <el-form :model="webrtcConfig" label-position="top">
     <el-form-item label="对方 SIP 地址">
-      <el-input style="width: 280px;" v-model="webrtcConfig.remoteSipUri" clearable @input="updateInput('remoteSipUri')" />
-      <el-button @click="onClickCall" :disabled="!active" :plain="!active" type="primary" style="margin-left: 6px;">
+      <el-input v-model="webrtcConfig.remoteSipUri" style="width: 280px;" clearable @input="updateInput('remoteSipUri')" />
+      <el-button :disabled="!active" :plain="!active" type="primary" style="margin-left: 6px;" @click="onClickCall">
         呼叫
       </el-button>
     </el-form-item>
     <el-form-item label="待发送的文本消息">
-      <el-input style="width: 280px;" v-model="webrtcConfig.msg" clearable @input="updateInput('msg')" />
-      <el-button @click="onClickSend" :disabled="!active" :plain="!active" type="primary" style="margin-left: 6px;">
+      <el-input v-model="webrtcConfig.msg" style="width: 280px;" clearable @input="updateInput('msg')" />
+      <el-button :disabled="!active" :plain="!active" type="primary" style="margin-left: 6px;" @click="onClickSend">
         发送
       </el-button>
     </el-form-item>
@@ -81,10 +91,12 @@
     <el-table-column prop="remoteSipUri" label="对方 SIP 地址" width="300" align="left" />
     <!--<el-table-column prop="remoteSipUri" label="操作" fixed="right" width="260" align="center">-->
     <el-table-column prop="remoteSipUri" label="操作" fixed="right" width="140" align="center">
-      <!--<el-button size="small" type="info">静音</el-button>-->
-      <!--<el-button size="small" type="warning">闭麦</el-button>-->
-      <el-button size="small" type="success" plain disabled>接听</el-button>
-      <el-button size="small" type="danger">挂断</el-button>
+      <template>
+        <!--<el-button size="small" type="info">静音</el-button>-->
+        <!--<el-button size="small" type="warning">闭麦</el-button>-->
+        <el-button size="small" type="success" plain disabled>接听</el-button>
+        <el-button size="small" type="danger" @click="onClickHangup">挂断</el-button>
+      </template>
     </el-table-column>
     <template #empty>
       暂无任何通话
@@ -120,7 +132,7 @@ import { ElMessageBox } from 'element-plus'
 // const vConsole = new VConsole({ theme: 'dark' });
 const vConsole = new VConsole();
 // 接下来即可照常使用 `console` 等方法
-console.log('vConsole', vConsole);
+// console.log('vConsole', vConsole);
 // 结束调试后，可移除掉
 // vConsole.destroy();
 
@@ -274,6 +286,7 @@ if (navigator?.mediaDevices?.getUserMedia || navigator?.getUserMedia || navigato
 }
 
 const initSip = () => {
+  /*
   // 如果当前页面支持麦克风权限，比如https页面，或者用户手动开启
   navigator.mediaDevices.getUserMedia({ audio: true }).then((stream: any) => {
     // 用户允许麦克风
@@ -285,15 +298,16 @@ const initSip = () => {
         track.stop()
       })
       stream = null
-      console.log('测试麦克风后关闭成功')
+      // console.log('测试麦克风后关闭成功')
     } catch (e) {
-      console.error('测试麦克风后关闭失败', e)
+      // console.error('测试麦克风后关闭失败', e)
     }
   }).catch((error: any) => {
     // 用户拒绝麦克风
-    console.error('没有麦克风权限', error)
+    // console.error('没有麦克风权限', error)
     alert('请检查浏览器麦克风权限 无法接通电话')
   })
+  */
 
   const socket = new JsSip.WebSocketInterface(webrtcConfig.registerUri)
   const config = {
@@ -348,7 +362,8 @@ const initSip = () => {
     }
 
     callList.push({
-      remoteSipUri: e.session + ''
+      remoteSipUri: e.session + '',
+      session: e.session
     })
 
     e.session.on('accepted', function (data: OutgoingEvent) {
@@ -465,6 +480,11 @@ const makeCall = () => {
   }
   outgoingSession = ua?.call(webrtcConfig.remoteSipUri, options) ?? null;
   console.log('makeCall session', outgoingSession)
+}
+
+const onClickHangup = (session: RTCSession) => {
+  console.log('session bye', session)
+  session?.terminate()
 }
 
 const onClickSend = () => {
