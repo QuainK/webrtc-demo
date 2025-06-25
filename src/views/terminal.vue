@@ -179,15 +179,14 @@ window.addEventListener('beforeunload', () => {
 })
 
 const webrtcConfig = reactive({
-  // registerUri: localStorage.getItem('registerUri') ?? 'wss://192.168.23.113:7443',
-  registerUri: localStorage.getItem('registerUri') ?? 'wss://192.168.23.17/wss',
-  localSipUri: localStorage.getItem('localSipUri') ?? 'sip:1007@192.168.23.113;transport=ws',
+  registerUri: localStorage.getItem('registerUri') ?? 'wss://192.168.23.176:5066',
+  localSipUri: localStorage.getItem('localSipUri') ?? 'sip:8888881013@192.168.23.113;transport=tcp',
   localSipPassword: localStorage.getItem('localSipPassword') ?? '1234',
   // TURN服务器启用状态
   // 注意localStorage是字符串，不是布尔值
   turnEnabled: JSON.parse(localStorage.getItem('turnEnabled')) ?? false,
   turnUri: localStorage.getItem('turnUri') ?? 'turn:192.168.23.176:3478?transport=tcp',
-  remoteSipUri: localStorage.getItem('remoteSipUri') ?? 'sip:1008@192.168.23.113;transport=ws',
+  remoteSipUri: localStorage.getItem('remoteSipUri') ?? 'sip:8888881008@192.168.23.176;transport=tcp',
   msg: localStorage.getItem('msg') ?? 'Hello! 你好！'
 })
 
