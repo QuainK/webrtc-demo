@@ -16,14 +16,6 @@ export const router = createRouter({
           },
           component: () => import('@/views/terminal.vue')
         },
-        {
-          path: '/admin',
-          name: 'admin',
-          meta: {
-            title: '后台'
-          },
-          component: () => import('@/views/admin.vue')
-        },
       ]
     },
   ]
